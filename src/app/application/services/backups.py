@@ -1,7 +1,10 @@
 import logging
+import re
 import shutil
+from datetime import UTC
 from pathlib import Path
 from threading import Event
+from zoneinfo import ZoneInfo
 
 from sqlalchemy import case, select, update
 
@@ -48,19 +51,60 @@ class BackupExecutor:
                 update(BackupRun).where(BackupRun.id == run_id).values(**values)
             )
 
-    def _key(self, target_id: int, run_id: int):
+    def _directory(self, target: DatabaseTarget):
+        prefix = (
+            "/".join(
+                part for part in [self.settings.S3_PREFIX.strip("/"), "history"] if part
+            )
+            + "/"
+        )
+        with self.sessions() as session:
+            key = session.scalar(
+                select(BackupRun.s3_key)
+                .join(BackupPlan)
+                .where(
+                    BackupPlan.target_id == target.id,
+                    BackupRun.s3_key.is_not(None),
+                )
+                .order_by(BackupRun.id.desc())
+                .limit(1)
+            )
+        # Keep the directory stable when the connection is renamed.
+        if key and key.startswith(prefix):
+            directory, separator, filename = key[len(prefix) :].partition("/")
+            if (
+                separator
+                and "/" not in filename
+                and directory.endswith(f"-target-{target.id}")
+            ):
+                return directory
+        name = re.sub(r"[^\w]+", "-", target.name.casefold()).strip("-_") or "database"
+        return f"{name}-target-{target.id}"
+
+    def _key(self, target: DatabaseTarget, plan: BackupPlan, run: BackupRun):
         prefix = self.settings.S3_PREFIX.strip("/")
+        started = run.started_at or run.created_at
+        if started.tzinfo is None:
+            started = started.replace(tzinfo=UTC)
+        stamp = started.astimezone(ZoneInfo(plan.timezone)).strftime(
+            "%Y-%m-%d_%H-%M-%S%z"
+        )
         return "/".join(
             part
-            for part in [prefix, "history", f"target-{target_id}", f"run-{run_id}.dump"]
+            for part in [
+                prefix,
+                "history",
+                self._directory(target),
+                f"{stamp}_run-{run.id}.dump",
+            ]
             if part
         )
 
-    def _latest_key(self, target_id: int):
+    def _latest_key(self, target: DatabaseTarget):
         prefix = self.settings.S3_PREFIX.strip("/")
         return "/".join(
             part
-            for part in [prefix, "latest", f"target-{target_id}", "database.dump"]
+            for part in [prefix, "latest", self._directory(target), "database.dump"]
             if part
         )
 
@@ -125,11 +169,11 @@ class BackupExecutor:
                         dump_bytes=path.stat().st_size,
                     )
                 operation = "upload"
-                key = run.s3_key or self._key(target.id, run.id)
+                key = run.s3_key or self._key(target, plan, run)
                 self._save(run.id, s3_status="running", s3_key=key)
                 self.storage.upload(path, key)
                 if (self._newest_s3_run(target.id) or 0) <= run.id:
-                    self.storage.promote(key, self._latest_key(target.id))
+                    self.storage.promote(key, self._latest_key(target))
                 self._save(run.id, s3_status="success")
                 saved = True
             self._save(run.id, status="success", finished_at=utcnow())

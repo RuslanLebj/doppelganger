@@ -2,6 +2,7 @@ import json
 import os
 import stat
 import sys
+from datetime import datetime
 from pathlib import Path
 from threading import Event
 
@@ -10,7 +11,7 @@ from conftest import TEST_PASSWORD
 
 from app.application.services.backups import BackupExecutor
 from app.infrastructure.backup.process import CommandError, base_environment, run_command
-from app.infrastructure.db.models import BackupRun
+from app.infrastructure.db.models import BackupRun, DatabaseTarget
 
 
 def executable(path: Path, body: str):
@@ -117,7 +118,8 @@ def test_retry_of_old_run_cannot_replace_newer_latest(
     executor.execute_next()
     assert client.post(f"/api/v1/runs/{old_id}/retry-s3").status_code == 202
     executor.execute_next()
-    assert executor.storage.promotions == [executor._key(source[0].id, new_id)]
+    with sessions() as session:
+        assert executor.storage.promotions == [session.get(BackupRun, new_id).s3_key]
     assert len(fake_dump.read_text().splitlines()) == 2
 
 
@@ -163,7 +165,10 @@ def test_backup_preserves_history_and_latest(
             )
             assert run.dump_path is None
             assert executor.storage.objects[run.s3_key] == b"fake database dump"
-    assert executor._latest_key(source[0].id) in executor.storage.objects
+    assert (
+        f"postgres-backups/latest/test-source-target-{source[0].id}/database.dump"
+        in executor.storage.objects
+    )
     assert not list(settings.BACKUPS_DIR.rglob("*.dump"))
 
 
@@ -172,13 +177,14 @@ def test_failure_of_new_backup_keeps_previous_latest(
 ):
     first_id = queued_run(sessions, source[1])
     executor.execute_next()
-    latest = executor._latest_key(source[0].id)
+    latest = f"postgres-backups/latest/test-source-target-{source[0].id}/database.dump"
     previous = executor.storage.objects[latest]
     executor.storage.fail_upload = True
     queued_run(sessions, source[1])
     executor.execute_next()
     assert executor.storage.objects[latest] == previous
-    assert executor.storage.promotions == [executor._key(source[0].id, first_id)]
+    with sessions() as session:
+        assert executor.storage.promotions == [session.get(BackupRun, first_id).s3_key]
 
 
 def test_restart_marks_running_job_interrupted(settings, sessions, source, executor):
@@ -221,4 +227,84 @@ def test_missing_staged_dump_rejects_retry_without_redump(
         path = settings.DATA_DIR / session.get(BackupRun, run_id).dump_path
     path.unlink()
     assert client.post(f"/api/v1/runs/{run_id}/retry-s3").status_code == 409
+    assert len(fake_dump.read_text().splitlines()) == 1
+
+
+def test_storage_keys_show_connection_name_and_local_start_time(
+    sessions, source, fake_dump, executor, monkeypatch
+):
+    monkeypatch.setattr(
+        "app.application.services.backups.utcnow",
+        lambda: datetime(2026, 10, 30, 6, 16, 33),
+    )
+    run_id = queued_run(sessions, source[1])
+    executor.execute_next()
+    expected = (
+        f"postgres-backups/history/test-source-target-{source[0].id}/"
+        f"2026-10-30_11-16-33+0500_run-{run_id}.dump"
+    )
+    with sessions() as session:
+        run = session.get(BackupRun, run_id)
+        assert run.status == "success"
+        assert run.s3_key == expected
+    assert executor.storage.promotions == [expected]
+
+
+def test_renaming_connection_keeps_existing_storage_directory(
+    sessions, source, fake_dump, executor
+):
+    first = queued_run(sessions, source[1])
+    executor.execute_next()
+    with sessions.begin() as session:
+        session.get(DatabaseTarget, source[0].id).name = "renamed production"
+    second = queued_run(sessions, source[1])
+    executor.execute_next()
+    with sessions() as session:
+        keys = [session.get(BackupRun, run_id).s3_key for run_id in (first, second)]
+    assert all(
+        key.startswith(f"postgres-backups/history/test-source-target-{source[0].id}/")
+        for key in keys
+    )
+    latest = f"postgres-backups/latest/test-source-target-{source[0].id}/database.dump"
+    assert [key for key in executor.storage.objects if "/latest/" in key] == [latest]
+
+
+@pytest.mark.parametrize(
+    ("name", "directory"),
+    [
+        ("Source . prod", "source-prod"),
+        ("База данных", "база-данных"),
+        ("...", "database"),
+    ],
+)
+def test_storage_directory_normalizes_names_and_includes_unique_target_id(
+    sessions, source, executor, name, directory
+):
+    target = source[0]
+    target.name = name
+    assert executor._directory(target) == f"{directory}-target-{target.id}"
+    other = DatabaseTarget(id=target.id + 1, name=name)
+    assert executor._directory(other) != executor._directory(target)
+
+
+def test_retry_preserves_legacy_history_key_and_publishes_readable_latest(
+    sessions, source, fake_dump, client, executor
+):
+    executor.storage.fail_upload = True
+    run_id = queued_run(sessions, source[1])
+    executor.execute_next()
+    legacy = f"postgres-backups/history/target-{source[0].id}/run-{run_id}.dump"
+    with sessions.begin() as session:
+        session.get(BackupRun, run_id).s3_key = legacy
+    assert client.post(f"/api/v1/runs/{run_id}/retry-s3").status_code == 202
+    executor.execute_next()
+    with sessions() as session:
+        run = session.get(BackupRun, run_id)
+        assert run.status == "success"
+        assert run.s3_key == legacy
+    assert legacy in executor.storage.objects
+    assert (
+        f"postgres-backups/latest/test-source-target-{source[0].id}/database.dump"
+        in executor.storage.objects
+    )
     assert len(fake_dump.read_text().splitlines()) == 1

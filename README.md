@@ -142,9 +142,15 @@ API использует отдельный ключ `Rosa-Api-Key`. Интер�
 Для каждой базы создаются:
 
 ```text
-postgres-backups/history/target-N/run-M.dump
-postgres-backups/latest/target-N/database.dump
+postgres-backups/history/production-target-1/2026-10-30_02-00-00+0500_run-3.dump
+postgres-backups/latest/production-target-1/database.dump
 ```
+
+Каталог содержит нормализованное имя подключения и его уникальный ID.
+После первой загрузки имя каталога сохраняется при переименовании подключения.
+В имени файла истории указаны время начала дампа в часовом поясе плана,
+смещение относительно UTC (`+0500`) и ID запуска. Повтор загрузки использует
+исходный ключ объекта, включая ключи прежнего формата `target-N/run-M.dump`.
 
 `RETENTION_DAYS=7` удаляет историю старше семи дней через lifecycle. `0` отключает
 удаление истории. Последняя успешная копия в `latest/` не имеет срока удаления.
@@ -167,7 +173,8 @@ postgres-backups/latest/target-N/database.dump
 Загрузка в S3 выполняется SDK последовательно; сетевые запросы имеют таймауты,
 отмена и общий бюджет времени проверяются между порциями передачи.
 
-Для восстановления скачайте `latest/target-N/database.dump` из MinIO Console:
+Для восстановления скачайте `latest/<имя-подключения>-target-N/database.dump`
+из MinIO Console:
 
 ```sh
 pg_restore --host=<тестовый-сервер> --username=<пользователь> --dbname=<тестовая-база> database.dump
