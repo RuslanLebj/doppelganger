@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <meta name="csrf-token" content="{{ csrf }}" />
     <title>Обзор · doppelganger</title>
+    <script src="/admin/static/theme.js"></script>
     <link rel="stylesheet" href="/admin/static/admin.css" />
     <script defer src="/admin/static/admin.js"></script>
   </head>
@@ -74,6 +75,7 @@
           <strong id="breadcrumb-page">Обзор</strong>
         </div>
         <div class="topbar-right">
+          {% include "theme_toggle.html" %}
           <span class="private-label"><i></i> Внутренний сервис</span
           ><a href="/docs" class="api-link" target="_blank" rel="noopener"
             >API <span>↗</span></a

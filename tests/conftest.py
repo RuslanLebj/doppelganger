@@ -85,7 +85,7 @@ def sessions(settings, monkeypatch):
 @pytest.fixture
 def client(settings, sessions):
     with TestClient(create_app(settings)) as client:
-        client.headers["Rosa-Api-Key"] = TOKEN
+        client.headers["X-API-Key"] = TOKEN
         yield client
 
 

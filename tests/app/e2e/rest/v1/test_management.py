@@ -41,7 +41,7 @@ def test_password_is_encrypted_and_never_returned(client, sessions, settings):
 
 
 def test_authentication_and_validation_do_not_echo_secrets(client):
-    response = client.get("/api/v1/targets", headers={"Rosa-Api-Key": "incorrect"})
+    response = client.get("/api/v1/targets", headers={"X-API-Key": "incorrect"})
     assert response.status_code == 403
     body = {
         "name": "invalid",
@@ -126,8 +126,8 @@ def test_single_s3_defaults_and_missing_credentials():
         open_client(settings)
 
 
-def test_api_key_header_matches_cashbox(client):
-    client.headers.pop("Rosa-Api-Key")
+def test_api_key_required_except_healthchecks(client):
+    client.headers.pop("X-API-Key")
     assert client.get("/api/v1/targets").status_code == 401
     assert client.get("/healthcheck/").json() == {"success": True, "msg": "App available"}
     assert client.get("/healthcheck/db").json() == {
