@@ -1,0 +1,14 @@
+.env
+.env.*
+.venv/
+.idea/
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+*.pyc
+data/
+secrets/
+*.dump
+*.partial
+*.sqlite3*
+docker/app/.env

@@ -1,0 +1,17 @@
+services:
+  doppelganger-db:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_USER: doppelganger_test
+      POSTGRES_PASSWORD: test-only-password
+      POSTGRES_DB: postgres
+    ports:
+      - "127.0.0.1:${DOPPELGANGER_TEST_POSTGRES_PORT:-55433}:5432"
+    tmpfs:
+      - /var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U doppelganger_test -d postgres"]
+      interval: 1s
+      timeout: 3s
+      retries: 30
+    restart: "no"

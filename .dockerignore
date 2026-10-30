@@ -1,0 +1,14 @@
+.git
+.venv
+.idea
+.env
+.env.*
+**/.env
+data
+secrets
+**/__pycache__
+.pytest_cache
+.ruff_cache
+*.sqlite3*
+*.dump
+*.partial

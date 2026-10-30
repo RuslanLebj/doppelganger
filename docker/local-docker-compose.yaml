@@ -1,0 +1,106 @@
+services:
+
+  doppelganger:
+    profiles: ["full", "app", "down/restart"]
+    image: ${DOPPELGANGER_IMAGE:-doppelganger:local}
+    build:
+      dockerfile: ./docker/app/Dockerfile
+      context: ../
+      args:
+        PG_MAJOR: ${PG_MAJOR:-18}
+    command: granian --interface asgi bootstrap.rest:app --host 0.0.0.0 --port 8000 --workers 1 --access-log
+    user: "${BACKUP_UID:-1000}:${BACKUP_GID:-1000}"
+    ports:
+      - "${API_BIND_HOST:-127.0.0.1}:8010:8000"
+    volumes:
+      - ../src:/opt/app/src
+      - ../data/app:/data
+    env_file:
+      - ../.env
+    environment:
+      DATA_DIR: /data
+      POSTGRES_DB_HOST: doppelganger-db
+      POSTGRES_DB_PORT: 5432
+      S3_ENDPOINT: http://doppelganger-minio:9000
+    restart: unless-stopped
+    init: true
+    stop_grace_period: 30s
+    depends_on:
+      doppelganger-db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/healthcheck/db', timeout=3)"]
+      timeout: 5s
+      interval: 30s
+      retries: 3
+
+  doppelganger-db:
+    profiles: ["full", "app", "dbs", "execution", "down/restart"]
+    image: postgres:18-alpine
+    ports:
+      - "127.0.0.1:${POSTGRES_DB_PORT:-55432}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      timeout: 1s
+      interval: 1s
+      retries: 60
+    volumes:
+      - postgres-data:/var/lib/postgresql
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB_NAME:-doppelganger}
+      POSTGRES_USER: ${POSTGRES_DB_USER:-doppelganger}
+      POSTGRES_PASSWORD: ${POSTGRES_DB_PASSWORD:?Set the secret in .env}
+    restart: unless-stopped
+
+  doppelganger-minio:
+    profiles: ["full", "dbs", "execution", "down/restart"]
+    image: ${MINIO_IMAGE:-quay.io/minio/aistor/minio@sha256:107cf2014a9583c74c11e3cdbd6903d89c2244355886b89ce532f4ecae9c23f3}
+    user: "${BACKUP_UID:-1000}:${BACKUP_GID:-1000}"
+    command: minio server /mnt/data --license /minio.license --console-address :9001
+    ports:
+      - "127.0.0.1:9000:9000"
+      - "127.0.0.1:9001:9001"
+    volumes:
+      - ../data/minio:/mnt/data
+      - type: bind
+        source: ${MINIO_LICENSE_FILE:-../secrets/minio.license}
+        target: /minio.license
+        read_only: true
+        bind:
+          create_host_path: false
+    environment:
+      MINIO_ROOT_USER: ${S3_ACCESS_KEY:-doppelganger-local}
+      MINIO_ROOT_PASSWORD: ${S3_SECRET_KEY:?Set the secret in .env}
+    restart: unless-stopped
+
+  doppelganger-scheduler:
+    profiles: ["execution", "down/restart"]
+    image: ${DOPPELGANGER_IMAGE:-doppelganger:local}
+    build:
+      dockerfile: ./docker/app/Dockerfile
+      context: ../
+      args:
+        PG_MAJOR: ${PG_MAJOR:-18}
+    command: python -m bootstrap.schedulers
+    user: "${BACKUP_UID:-1000}:${BACKUP_GID:-1000}"
+    volumes:
+      - ../src:/opt/app/src
+      - ../data/app:/data
+    env_file:
+      - ../.env
+    environment:
+      DATA_DIR: /data
+      POSTGRES_DB_HOST: doppelganger-db
+      POSTGRES_DB_PORT: 5432
+      S3_ENDPOINT: http://doppelganger-minio:9000
+    restart: unless-stopped
+    init: true
+    stop_grace_period: 30s
+    depends_on:
+      doppelganger-db:
+        condition: service_healthy
+      doppelganger-minio:
+        condition: service_started
+
+volumes:
+  postgres-data:

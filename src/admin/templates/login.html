@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Вход · doppelganger</title>
+    <link rel="stylesheet" href="/admin/static/admin.css" />
+  </head>
+  <body class="login-page">
+    <section class="login-art">
+      <a class="brand brand-light" href="/admin/"
+        ><span class="brand-mark"><i></i><i></i></span>doppelganger<span
+          class="brand-dot"
+          >.</span
+        ></a
+      >
+      <div class="login-art-content">
+        <span class="eyebrow">POSTGRESQL BACKUPS</span>
+        <h1>Резервные копии<br />под контролем.</h1>
+        <p>Базы, расписания и история.<br />Одна рабочая панель для команды.</p>
+        <div class="orbit"><span></span><span></span><b>↗</b></div>
+      </div>
+      <div class="login-art-footer">
+        <span class="little-dot"></span> Внутреннее рабочее пространство
+      </div>
+    </section>
+    <main class="login-main">
+      <div class="login-box">
+        <div class="login-symbol">↗</div>
+        <h2>С возвращением</h2>
+        <p class="muted">Войдите, чтобы управлять бэкапами.</p>
+        {% if error %}
+        <div class="form-error" role="alert">{{ error }}</div>
+        {% elif not configured %}
+        <div class="notice">
+          Вход ещё не настроен. Обратитесь к администратору сервиса.
+        </div>
+        {% endif %}
+        <form method="post" action="/admin/login" class="login-form">
+          <input type="hidden" name="csrf" value="{{ csrf }}" />
+          <label
+            >Логин<input
+              name="username"
+              autocomplete="username"
+              placeholder="Ваш логин"
+              required
+              autofocus
+          /></label>
+          <label
+            >Пароль<input
+              name="password"
+              type="password"
+              autocomplete="current-password"
+              placeholder="Введите пароль"
+              required
+          /></label>
+          <button class="button primary" type="submit">
+            Войти в рабочее пространство <span>→</span>
+          </button>
+        </form>
+        <div class="login-caption">
+          doppelganger <span> / </span> PostgreSQL backup manager
+        </div>
+      </div>
+    </main>
+  </body>
+</html>
