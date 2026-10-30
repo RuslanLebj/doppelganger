@@ -5,9 +5,17 @@
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <meta name="csrf-token" content="{{ csrf }}" />
     <title>Обзор · doppelganger</title>
-    <script src="/admin/static/theme.js"></script>
-    <link rel="stylesheet" href="/admin/static/admin.css" />
-    <script defer src="/admin/static/admin.js"></script>
+    <script
+      src="/admin/static/theme.js?v={{ static_versions['theme.js'] }}"
+    ></script>
+    <link
+      rel="stylesheet"
+      href="/admin/static/admin.css?v={{ static_versions['admin.css'] }}"
+    />
+    <script
+      defer
+      src="/admin/static/admin.js?v={{ static_versions['admin.js'] }}"
+    ></script>
   </head>
   <body>
     <aside class="sidebar">

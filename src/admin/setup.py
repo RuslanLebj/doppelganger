@@ -1,3 +1,4 @@
+from hashlib import sha256
 from pathlib import Path
 
 from fastapi import FastAPI
@@ -9,6 +10,11 @@ from config import Settings
 
 ADMIN_DIR = Path(__file__).resolve().parent
 templates = Jinja2Templates(directory=str(ADMIN_DIR / "templates"))
+templates.env.globals["static_versions"] = {
+    path.name: sha256(path.read_bytes()).hexdigest()[:12]
+    for path in (ADMIN_DIR / "static").iterdir()
+    if path.is_file()
+}
 
 
 def setup_admin(app: FastAPI, settings: Settings):
