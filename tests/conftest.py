@@ -95,7 +95,7 @@ def source(sessions, settings):
         target = DatabaseTarget(
             name="test-source",
             host="db.example.test",
-            database="cashbox",
+            database="example_db",
             username="backup",
             sslmode="verify-full",
             password_encrypted=SecretCipher(

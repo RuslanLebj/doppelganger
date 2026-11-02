@@ -17,9 +17,9 @@ from utils.cryptography.fernet import SecretCipher
 
 def test_password_is_encrypted_and_never_returned(client, sessions, settings):
     body = {
-        "name": "cashbox",
+        "name": "example_db",
         "host": "db.example.test",
-        "database": "cashbox",
+        "database": "example_db",
         "username": "backup",
         "password": TEST_PASSWORD,
     }
@@ -46,7 +46,7 @@ def test_authentication_and_validation_do_not_echo_secrets(client):
     body = {
         "name": "invalid",
         "host": "db.test",
-        "database": "cashbox",
+        "database": "example_db",
         "username": "backup",
         "password": {"nested": TEST_PASSWORD},
     }
