@@ -355,6 +355,8 @@ function openTarget(id) {
   editingTarget = id ?? null;
   const form = document.getElementById("target-form");
   form.reset();
+  document.getElementById("target-json-import").open = false;
+  document.getElementById("target-json-error").hidden = true;
   const t = targets.get(id);
   document.getElementById("target-dialog-title").textContent = t
     ? "Параметры базы"
@@ -375,6 +377,60 @@ function openTarget(id) {
   form.querySelector(".form-error").hidden = true;
   document.getElementById("target-dialog").showModal();
 }
+document.getElementById("import-target-json").addEventListener("click", () => {
+  const form = document.getElementById("target-form"),
+    input = document.getElementById("target-json"),
+    error = document.getElementById("target-json-error");
+  error.hidden = true;
+  form.querySelector(".form-error").hidden = true;
+  try {
+    let value;
+    try {
+      value = JSON.parse(input.value);
+    } catch {
+      throw new Error("Некорректный JSON. Проверьте кавычки, запятые и скобки.");
+    }
+    if (!value || typeof value !== "object" || Array.isArray(value))
+      throw new Error("Ожидается JSON-объект с параметрами подключения.");
+    const fields = { host: "DB_HOST", database: "DB_NAME", username: "DB_OWNER" };
+    for (const key of Object.values(fields)) {
+      if (typeof value[key] !== "string" || !value[key].trim())
+        throw new Error(`Укажите непустую строку ${key}.`);
+    }
+    const port = value.DB_PORT ?? 5432;
+    if (
+      !["string", "number"].includes(typeof port) ||
+      !/^\d+$/.test(String(port).trim()) ||
+      Number(port) < 1 ||
+      Number(port) > 65535
+    )
+      throw new Error("DB_PORT должен быть целым числом от 1 до 65535.");
+    const password = value.DB_OWNER_PASSWORD;
+    if (password !== undefined || !editingTarget) {
+      if (
+        typeof password !== "string" ||
+        !password ||
+        /[\r\n\0]/.test(password)
+      )
+        throw new Error("Укажите непустой DB_OWNER_PASSWORD без переносов строк.");
+    }
+    for (const [name, key] of Object.entries(fields))
+      form.elements[name].value = value[key].trim();
+    form.elements.port.value = Number(port);
+    if (password !== undefined) form.elements.password.value = password;
+    if (!form.elements.name.value.trim())
+      form.elements.name.value = value.DB_NAME.trim();
+    input.value = "";
+    document.getElementById("target-json-import").open = false;
+    form.elements.name.focus();
+  } catch (issue) {
+    error.textContent = issue.message;
+    error.hidden = false;
+  }
+});
+document.getElementById("target-dialog").addEventListener("close", () => {
+  document.getElementById("target-form").reset();
+});
 function openPlan(id) {
   if (!data.targets.length) {
     toast("Сначала добавьте базу данных");

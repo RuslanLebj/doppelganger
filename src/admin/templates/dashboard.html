@@ -143,6 +143,27 @@
           Укажите параметры PostgreSQL. Пароль будет сохранён в зашифрованном
           виде.
         </p>
+        <details class="json-import" id="target-json-import">
+          <summary>Заполнить из JSON</summary>
+          <label for="target-json">Параметры подключения</label>
+          <textarea
+            id="target-json"
+            class="mono"
+            rows="6"
+            autocomplete="off"
+            autocapitalize="off"
+            spellcheck="false"
+            placeholder='{"DB_HOST":"db.example.local","DB_NAME":"example","DB_OWNER":"backup","DB_OWNER_PASSWORD":"...","DB_PORT":"6432"}'
+          ></textarea>
+          <button
+            type="button"
+            class="button secondary small"
+            id="import-target-json"
+          >
+            Заполнить поля
+          </button>
+          <div class="json-error" id="target-json-error" role="alert" hidden></div>
+        </details>
         <div class="form-grid">
           <label class="wide"
             >Название<input
@@ -190,7 +211,7 @@
             </select></label
           >
         </div>
-        <div class="form-error" hidden></div>
+        <div class="form-error" role="alert" hidden></div>
         <div class="dialog-actions">
           <button type="button" class="button secondary close-dialog">
             Отмена</button

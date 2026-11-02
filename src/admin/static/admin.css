@@ -95,13 +95,15 @@ a {
 }
 button,
 input,
-select {
+select,
+textarea {
   font: inherit;
 }
 button,
 a,
 input,
-select {
+select,
+textarea {
   outline-offset: 4px;
 }
 button {
@@ -992,7 +994,8 @@ label small {
   color: var(--muted);
 }
 input,
-select {
+select,
+textarea {
   background: var(--panel);
   border: 1px solid var(--line);
   color: var(--secondary-text);
@@ -1002,13 +1005,37 @@ select {
   min-width: 0;
   max-width: 100%;
 }
-input::placeholder {
+input::placeholder,
+textarea::placeholder {
   color: var(--field-placeholder);
 }
 input:focus,
-select:focus {
+select:focus,
+textarea:focus {
   outline: 2px solid var(--focus-ring);
   border-color: var(--focus-border);
+}
+.json-import {
+  margin-top: 18px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--hover);
+}
+.json-import summary {
+  color: var(--green);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+}
+.json-import label {
+  margin-top: 14px;
+}
+.json-import textarea {
+  display: block;
+  width: 100%;
+  resize: vertical;
+  margin: 7px 0 12px;
 }
 .check-label {
   flex-direction: row;
@@ -1035,7 +1062,8 @@ select:focus {
   margin-top: 23px;
   padding-top: 19px;
 }
-.form-error {
+.form-error,
+.json-error {
   background: var(--error-bg);
   border: 1px solid var(--error-border);
   color: var(--error-text);
@@ -1044,7 +1072,8 @@ select:focus {
   font-size: 11px;
   margin-top: 16px;
 }
-.form-error[hidden] {
+.form-error[hidden],
+.json-error[hidden] {
   display: none;
 }
 .toast {
